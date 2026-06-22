@@ -3,6 +3,7 @@ package com.parchie.model;
 import jakarta.persistence.*;
 import org.mindrot.jbcrypt.BCrypt;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Entity
@@ -30,7 +31,7 @@ public class Session {
 
     @PrePersist
     private void onCreate() {
-        createdAt = Instant.now();
+        createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
         if (expiresAt == null) {
             expiresAt = createdAt.plusSeconds(7L * 24 * 60 * 60);
         }
