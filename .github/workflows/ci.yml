@@ -15,4 +15,4 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - run: ./mvnw test
+      - run: mvn test
