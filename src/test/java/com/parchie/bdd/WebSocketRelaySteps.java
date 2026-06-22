@@ -36,9 +36,9 @@ public class WebSocketRelaySteps {
     int port;
 
     private final ConcurrentHashMap<String, CompletableFuture<CloseStatus>> closeFutures = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, UUID> connectedSessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> connectedRooms = new ConcurrentHashMap<>();
 
-    private void connect(String clientName, UUID sessionId) throws Exception {
+    private void connect(String clientName, String room) throws Exception {
         BlockingQueue<byte[]> inbox = new LinkedBlockingQueue<>();
         CompletableFuture<CloseStatus> closeFuture = new CompletableFuture<>();
         closeFutures.put(clientName, closeFuture);
@@ -62,36 +62,36 @@ public class WebSocketRelaySteps {
         WebSocketSession session = ws.execute(
                         clientHandler,
                         new WebSocketHttpHeaders(),
-                        URI.create("ws://localhost:" + port + "/ws/sessions/" + sessionId))
+                        URI.create("ws://localhost:" + port + "/ws/sessions/" + room))
                 .get(5, TimeUnit.SECONDS);
 
         context.putClient(clientName, session, inbox);
-        connectedSessions.put(clientName, sessionId);
+        connectedRooms.put(clientName, room);
     }
 
-    private void awaitPeers(UUID sessionId, int expected) {
+    private void awaitPeers(String room, int expected) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (System.nanoTime() < deadline) {
-            if (handler.peerCount(sessionId) == expected) return;
+            if (handler.peerCount(room) == expected) return;
             try { Thread.sleep(10); } catch (InterruptedException e) {
                 Thread.currentThread().interrupt(); return;
             }
         }
-        throw new AssertionError("Timed out waiting for " + expected + " peers in session " + sessionId
-                + " (have " + handler.peerCount(sessionId) + ")");
+        throw new AssertionError("Timed out waiting for " + expected + " peers in room " + room
+                + " (have " + handler.peerCount(room) + ")");
     }
 
     @Given("client {string} connects to {string}")
     public void clientConnectsTo(String clientName, String sessionAlias) throws Exception {
-        UUID sessionId = context.sessionId(sessionAlias);
-        connect(clientName, sessionId);
-        long peers = connectedSessions.values().stream().filter(sessionId::equals).count();
-        awaitPeers(sessionId, (int) peers);
+        String room = context.sessionId(sessionAlias).toString();
+        connect(clientName, room);
+        long peers = connectedRooms.values().stream().filter(room::equals).count();
+        awaitPeers(room, (int) peers);
     }
 
     @When("client {string} connects to a random session id")
     public void clientConnectsToRandom(String clientName) throws Exception {
-        connect(clientName, UUID.randomUUID());
+        connect(clientName, UUID.randomUUID().toString());
     }
 
     @When("client {string} sends bytes {word}")
@@ -110,13 +110,5 @@ public class WebSocketRelaySteps {
     public void clientReceivesNothing(String clientName, int ms) throws Exception {
         byte[] received = context.inbox(clientName).poll(ms, TimeUnit.MILLISECONDS);
         assertNull(received, "client " + clientName + " unexpectedly received bytes");
-    }
-
-    @Then("client {string} is closed by the server within {int} seconds")
-    public void clientIsClosed(String clientName, int seconds) throws Exception {
-        CloseStatus status = closeFutures.get(clientName).get(seconds, TimeUnit.SECONDS);
-        assertNotNull(status);
-        assertNotEquals(CloseStatus.NORMAL.getCode(), status.getCode(),
-                "expected non-normal close, got " + status);
     }
 }

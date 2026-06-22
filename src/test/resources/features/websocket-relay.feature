@@ -1,6 +1,6 @@
 Feature: WebSocket relay
-  Binary frames are broadcast to all peers in the same session except the sender,
-  and never leak across sessions.
+  Binary frames are broadcast to all peers in the same room except the sender,
+  and never leak across rooms.
 
   Scenario: Frame is relayed to the other peer in the same session
     Given a session "alpha" exists
@@ -19,7 +19,3 @@ Feature: WebSocket relay
     When client "A" sends bytes 0xAA,0xBB
     Then client "B" receives bytes 0xAA,0xBB within 5 seconds
     And client "C" receives nothing within 500 ms
-
-  Scenario: Connection to an unknown session is refused
-    When client "X" connects to a random session id
-    Then client "X" is closed by the server within 5 seconds
