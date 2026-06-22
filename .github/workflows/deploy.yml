@@ -60,4 +60,5 @@ jobs:
           IMAGE_URI=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE }}:${{ github.sha }}
           sed "s|IMAGE_PLACEHOLDER|$IMAGE_URI|g" k8s/deployment.yaml | kubectl apply -f -
           kubectl apply -f k8s/service.yaml
-          kubectl rollout status deployment/parchie-backend --timeout=120s
+          kubectl rollout restart deployment/parchie-backend
+          kubectl rollout status deployment/parchie-backend --timeout=300s
