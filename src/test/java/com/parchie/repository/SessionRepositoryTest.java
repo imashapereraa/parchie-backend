@@ -35,31 +35,32 @@ class SessionRepositoryTest {
     }
 
     @Test
-    void deleteAllExpired_deletesSessionsPastExpiry() {
+    void findAllExpiredBefore_findsSessionsPastExpiry() {
         Session expired = new Session();
         expired.setExpiresAt(Instant.now().minusSeconds(3600));
         sessionRepository.save(expired);
 
-        int deleted = sessionRepository.deleteAllExpired();
+        List<Session> found = sessionRepository.findAllExpiredBefore(Instant.now());
 
-        assertEquals(1, deleted);
+        assertEquals(1, found.size());
+        sessionRepository.deleteAll(found);
         assertTrue(sessionRepository.findAll().isEmpty());
     }
 
     @Test
-    void deleteAllExpired_keepsFutureSessions() {
+    void findAllExpiredBefore_keepsFutureSessions() {
         Session future = new Session();
         future.setExpiresAt(Instant.now().plusSeconds(3600));
         Session saved = sessionRepository.save(future);
 
-        int deleted = sessionRepository.deleteAllExpired();
+        List<Session> found = sessionRepository.findAllExpiredBefore(Instant.now());
 
-        assertEquals(0, deleted);
+        assertEquals(0, found.size());
         assertTrue(sessionRepository.findById(saved.getId()).isPresent());
     }
 
     @Test
-    void deleteAllExpired_mixedSet() {
+    void findAllExpiredBefore_mixedSet() {
         Session expiredA = new Session();
         expiredA.setExpiresAt(Instant.now().minusSeconds(3600));
         Session expiredB = new Session();
@@ -71,19 +72,20 @@ class SessionRepositoryTest {
         sessionRepository.save(expiredB);
         Session savedFuture = sessionRepository.save(future);
 
-        int deleted = sessionRepository.deleteAllExpired();
+        List<Session> found = sessionRepository.findAllExpiredBefore(Instant.now());
+        sessionRepository.deleteAll(found);
 
-        assertEquals(2, deleted);
+        assertEquals(2, found.size());
         List<Session> remaining = sessionRepository.findAll();
         assertEquals(1, remaining.size());
         assertEquals(savedFuture.getId(), remaining.get(0).getId());
     }
 
     @Test
-    void deleteAllExpired_emptyTable_returnsZero() {
-        int deleted = sessionRepository.deleteAllExpired();
+    void findAllExpiredBefore_emptyTable_returnsEmpty() {
+        List<Session> found = sessionRepository.findAllExpiredBefore(Instant.now());
 
-        assertEquals(0, deleted);
+        assertTrue(found.isEmpty());
     }
 
     @Test

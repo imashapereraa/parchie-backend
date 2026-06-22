@@ -212,6 +212,28 @@ class SessionRelayHandlerTest {
     }
 
     @Test
+    void closeRoom_kicksAllConnectedPeers() throws Exception {
+        Session s = newSession("close-room-sweep");
+        String roomId = s.getId().toString();
+
+        RecordingClient a = connect(roomId);
+        RecordingClient b = connect(roomId);
+        assertTrue(a.openLatch.await(2, TimeUnit.SECONDS));
+        assertTrue(b.openLatch.await(2, TimeUnit.SECONDS));
+        awaitPeers(roomId, 2);
+
+        handler.closeRoom(roomId, CloseStatus.GOING_AWAY.withReason("session expired"));
+
+        CloseStatus closeA = a.closeFuture.get(5, TimeUnit.SECONDS);
+        CloseStatus closeB = b.closeFuture.get(5, TimeUnit.SECONDS);
+        assertEquals(CloseStatus.GOING_AWAY.getCode(), closeA.getCode(),
+                "Peer A should receive GOING_AWAY close");
+        assertEquals(CloseStatus.GOING_AWAY.getCode(), closeB.getCode(),
+                "Peer B should receive GOING_AWAY close");
+        assertEquals(0, handler.peerCount(roomId), "Room should be empty after closeRoom");
+    }
+
+    @Test
     void brokenPeer_doesNotPreventDeliveryToHealthyPeers() throws Exception {
         Session s = newSession("broken-peer-room");
         String path = "/ws/sessions/" + s.getId();

@@ -70,6 +70,18 @@ public class SessionRelayHandler extends BinaryWebSocketHandler {
         return peers == null ? 0 : peers.size();
     }
 
+    public void closeRoom(String roomKey, CloseStatus reason) {
+        Set<WebSocketSession> peers = peersByRoom.remove(roomKey);
+        if (peers == null) return;
+        for (WebSocketSession peer : peers) {
+            try {
+                peer.close(reason);
+            } catch (Exception e) {
+                log.warn("Failed to close peer {} in room {}: {}", peer.getId(), roomKey, e.toString());
+            }
+        }
+    }
+
     private String resolveRoomKey(WebSocketSession session) {
         if (session.getUri() == null) return null;
         String path = session.getUri().getPath();

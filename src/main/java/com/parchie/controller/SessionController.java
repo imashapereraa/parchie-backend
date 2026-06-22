@@ -4,6 +4,7 @@ import com.parchie.dto.SessionMetadataDto;
 import com.parchie.dto.SessionSettingsDto;
 import com.parchie.model.Session;
 import com.parchie.service.SessionService;
+import com.parchie.websocket.SessionRelayHandler;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,14 +19,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/sessions")
 public class SessionController {
 
     private final SessionService sessionService;
+    private final SessionRelayHandler relayHandler;
 
-    public SessionController(SessionService sessionService) {
+    public SessionController(SessionService sessionService, SessionRelayHandler relayHandler) {
         this.sessionService = sessionService;
+        this.relayHandler = relayHandler;
     }
 
     @PostMapping
@@ -69,5 +74,11 @@ public class SessionController {
             @RequestBody byte[] blob) {
         sessionService.assertAccess(id, password);
         sessionService.updateEncryptedState(id, blob);
+    }
+
+    @GetMapping("/{id}/presence")
+    public Map<String, Integer> getPresence(@PathVariable String id) {
+        sessionService.resolveOrThrow(id);
+        return Map.of("peers", relayHandler.peerCount(id));
     }
 }

@@ -6,16 +6,19 @@ import com.parchie.exception.SessionLockedException;
 import com.parchie.exception.SessionNotFoundException;
 import com.parchie.model.Session;
 import com.parchie.repository.SessionRepository;
+import com.parchie.websocket.SessionRelayHandler;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.socket.CloseStatus;
 
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -31,10 +34,12 @@ public class SessionService {
     private static final int SLUG_MAX_ATTEMPTS = 5;
 
     private final SessionRepository sessionRepository;
+    private final SessionRelayHandler relayHandler;
     private final SecureRandom random = new SecureRandom();
 
-    public SessionService(SessionRepository sessionRepository) {
+    public SessionService(SessionRepository sessionRepository, SessionRelayHandler relayHandler) {
         this.sessionRepository = sessionRepository;
+        this.relayHandler = relayHandler;
     }
 
     @Transactional
@@ -104,8 +109,13 @@ public class SessionService {
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
     @Transactional
     public void cleanupExpiredSessions() {
-        int deleted = sessionRepository.deleteAllExpired();
-        log.info("Cleaned up {} expired sessions", deleted);
+        List<Session> expired = sessionRepository.findAllExpiredBefore(Instant.now());
+        if (expired.isEmpty()) return;
+        sessionRepository.deleteAll(expired);
+        for (Session s : expired) {
+            relayHandler.closeRoom(s.getId().toString(), CloseStatus.GOING_AWAY.withReason("session expired"));
+        }
+        log.info("Cleaned up {} expired sessions", expired.size());
     }
 
     private void checkPassword(Session session, String password) {
