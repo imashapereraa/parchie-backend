@@ -42,12 +42,17 @@ jobs:
           location: ${{ env.REGION }}
 
       - name: Sync k8s secrets from GitHub secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
         run: |
           kubectl create secret generic parchie-secrets \
-            --from-literal=database-url=${{ secrets.DATABASE_URL }} \
-            --from-literal=database-username=${{ secrets.DATABASE_USERNAME }} \
-            --from-literal=database-password=${{ secrets.DATABASE_PASSWORD }} \
-            --from-literal=cors-allowed-origins=${{ secrets.CORS_ALLOWED_ORIGINS }} \
+            --from-literal=database-url="$DATABASE_URL" \
+            --from-literal=database-username="$DATABASE_USERNAME" \
+            --from-literal=database-password="$DATABASE_PASSWORD" \
+            --from-literal=cors-allowed-origins="$CORS_ALLOWED_ORIGINS" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy
