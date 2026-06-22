@@ -17,10 +17,12 @@ class SessionMetadataDtoTest {
         setField(session, "createdAt", Instant.parse("2026-01-01T00:00:00Z"));
         session.setExpiresAt(Instant.parse("2026-01-08T00:00:00Z"));
         session.setLocked(true);
+        session.setSlug("r7h-rxkt-fix");
 
         SessionMetadataDto dto = SessionMetadataDto.from(session);
 
         assertEquals(session.getId(), dto.id());
+        assertEquals("r7h-rxkt-fix", dto.slug());
         assertEquals(session.getCreatedAt(), dto.createdAt());
         assertEquals(session.getExpiresAt(), dto.expiresAt());
         assertTrue(dto.locked());

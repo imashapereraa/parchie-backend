@@ -49,6 +49,7 @@ class SessionServiceTest {
         Session created = sessionService.createSession();
 
         assertNotNull(created.getId());
+        assertNotNull(created.getSlug());
         assertNotNull(created.getCreatedAt());
         assertNotNull(created.getExpiresAt());
         assertFalse(created.isLocked());
@@ -324,5 +325,62 @@ class SessionServiceTest {
     void assertAccess_throwsSessionNotFoundException_forUnknownSession() {
         assertThrows(SessionNotFoundException.class,
                 () -> sessionService.assertAccess(UUID.randomUUID(), null));
+    }
+
+    @Test
+    void createSession_assignsUniqueSlug() {
+        Session a = sessionService.createSession();
+        Session b = sessionService.createSession();
+
+        assertNotNull(a.getSlug());
+        assertNotNull(b.getSlug());
+        assertNotEquals(a.getSlug(), b.getSlug());
+    }
+
+    @Test
+    void resolveOrThrow_findsSessionByUuidString() {
+        Session created = sessionService.createSession();
+
+        Session resolved = sessionService.resolveOrThrow(created.getId().toString());
+
+        assertEquals(created.getId(), resolved.getId());
+    }
+
+    @Test
+    void resolveOrThrow_findsSessionBySlug() {
+        Session created = sessionService.createSession();
+
+        Session resolved = sessionService.resolveOrThrow(created.getSlug());
+
+        assertEquals(created.getId(), resolved.getId());
+        assertEquals(created.getSlug(), resolved.getSlug());
+    }
+
+    @Test
+    void resolveOrThrow_throwsForUnknownSlug() {
+        assertThrows(SessionNotFoundException.class,
+                () -> sessionService.resolveOrThrow("no-such-slug"));
+    }
+
+    @Test
+    void resolveOrThrow_throwsForUnknownUuid() {
+        assertThrows(SessionNotFoundException.class,
+                () -> sessionService.resolveOrThrow(UUID.randomUUID().toString()));
+    }
+
+    @Test
+    void resolveOrThrow_throwsForExpiredSession() {
+        Session created = sessionService.createSession();
+        created.setExpiresAt(Instant.now().minusSeconds(1));
+        sessionRepository.save(created);
+
+        assertThrows(SessionNotFoundException.class,
+                () -> sessionService.resolveOrThrow(created.getSlug()));
+    }
+
+    @Test
+    void resolveOrThrow_throwsForBlankIdentifier() {
+        assertThrows(SessionNotFoundException.class, () -> sessionService.resolveOrThrow(""));
+        assertThrows(SessionNotFoundException.class, () -> sessionService.resolveOrThrow(null));
     }
 }

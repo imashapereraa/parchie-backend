@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -24,7 +25,13 @@ public class SessionService {
 
     private static final Logger log = LoggerFactory.getLogger(SessionService.class);
 
+    // Avoid visually ambiguous chars (l, o, 0, 1).
+    private static final String SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
+    private static final int[] SLUG_GROUP_SIZES = {3, 4, 3};
+    private static final int SLUG_MAX_ATTEMPTS = 5;
+
     private final SessionRepository sessionRepository;
+    private final SecureRandom random = new SecureRandom();
 
     public SessionService(SessionRepository sessionRepository) {
         this.sessionRepository = sessionRepository;
@@ -32,7 +39,9 @@ public class SessionService {
 
     @Transactional
     public Session createSession() {
-        return sessionRepository.save(new Session());
+        Session session = new Session();
+        session.setSlug(generateUniqueSlug());
+        return sessionRepository.save(session);
     }
 
     public Optional<Session> getSession(UUID id) {
@@ -43,22 +52,71 @@ public class SessionService {
         return getSession(id).orElseThrow(() -> new SessionNotFoundException(id));
     }
 
-    public void assertAccess(UUID id, String password) {
-        Session session = getSessionOrThrow(id);
-        if (!session.passwordMatches(password)) {
-            throw new InvalidPasswordException();
+    public Session resolveOrThrow(String idOrSlug) {
+        if (idOrSlug == null || idOrSlug.isBlank()) {
+            throw new SessionNotFoundException(String.valueOf(idOrSlug));
         }
+        UUID parsedId = tryParseUuid(idOrSlug);
+        Optional<Session> session = (parsedId != null)
+                ? sessionRepository.findById(parsedId)
+                : sessionRepository.findBySlug(idOrSlug);
+        return session
+                .filter(s -> !s.isExpired())
+                .orElseThrow(() -> new SessionNotFoundException(idOrSlug));
+    }
+
+    public void assertAccess(UUID id, String password) {
+        checkPassword(getSessionOrThrow(id), password);
+    }
+
+    public void assertAccess(String idOrSlug, String password) {
+        checkPassword(resolveOrThrow(idOrSlug), password);
     }
 
     public byte[] getEncryptedState(UUID id) {
         return getSessionOrThrow(id).getEncryptedState();
     }
 
+    public byte[] getEncryptedState(String idOrSlug) {
+        return resolveOrThrow(idOrSlug).getEncryptedState();
+    }
+
     @Transactional
     public void updateEncryptedState(UUID id, byte[] blob) {
-        Session session = getSessionOrThrow(id);
+        applyEncryptedState(getSessionOrThrow(id), blob);
+    }
+
+    @Transactional
+    public void updateEncryptedState(String idOrSlug, byte[] blob) {
+        applyEncryptedState(resolveOrThrow(idOrSlug), blob);
+    }
+
+    @Transactional
+    public Session updateSettings(UUID id, SessionSettingsDto dto) {
+        return applySettings(getSessionOrThrow(id), dto);
+    }
+
+    @Transactional
+    public Session updateSettings(String idOrSlug, SessionSettingsDto dto) {
+        return applySettings(resolveOrThrow(idOrSlug), dto);
+    }
+
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
+    @Transactional
+    public void cleanupExpiredSessions() {
+        int deleted = sessionRepository.deleteAllExpired();
+        log.info("Cleaned up {} expired sessions", deleted);
+    }
+
+    private void checkPassword(Session session, String password) {
+        if (!session.passwordMatches(password)) {
+            throw new InvalidPasswordException();
+        }
+    }
+
+    private void applyEncryptedState(Session session, byte[] blob) {
         if (session.isLocked()) {
-            throw new SessionLockedException(id);
+            throw new SessionLockedException(session.getId());
         }
         session.setEncryptedState(blob);
         Instant sevenDaysFromNow = Instant.now().plus(7, ChronoUnit.DAYS);
@@ -68,9 +126,7 @@ public class SessionService {
         sessionRepository.save(session);
     }
 
-    @Transactional
-    public Session updateSettings(UUID id, SessionSettingsDto dto) {
-        Session session = getSessionOrThrow(id);
+    private Session applySettings(Session session, SessionSettingsDto dto) {
         if (dto.expiresAt() != null) {
             session.setExpiresAt(dto.expiresAt());
         }
@@ -87,10 +143,32 @@ public class SessionService {
         return sessionRepository.save(session);
     }
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
-    @Transactional
-    public void cleanupExpiredSessions() {
-        int deleted = sessionRepository.deleteAllExpired();
-        log.info("Cleaned up {} expired sessions", deleted);
+    private UUID tryParseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private String generateUniqueSlug() {
+        for (int attempt = 0; attempt < SLUG_MAX_ATTEMPTS; attempt++) {
+            String slug = generateSlug();
+            if (sessionRepository.findBySlug(slug).isEmpty()) {
+                return slug;
+            }
+        }
+        throw new IllegalStateException("Failed to generate a unique slug after " + SLUG_MAX_ATTEMPTS + " attempts");
+    }
+
+    private String generateSlug() {
+        StringBuilder sb = new StringBuilder();
+        for (int g = 0; g < SLUG_GROUP_SIZES.length; g++) {
+            if (g > 0) sb.append('-');
+            for (int i = 0; i < SLUG_GROUP_SIZES[g]; i++) {
+                sb.append(SLUG_ALPHABET.charAt(random.nextInt(SLUG_ALPHABET.length())));
+            }
+        }
+        return sb.toString();
     }
 }

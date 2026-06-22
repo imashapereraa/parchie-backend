@@ -18,8 +18,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/sessions")
 public class SessionController {
@@ -38,13 +36,13 @@ public class SessionController {
     }
 
     @GetMapping("/{id}")
-    public SessionMetadataDto get(@PathVariable UUID id) {
-        return SessionMetadataDto.from(sessionService.getSessionOrThrow(id));
+    public SessionMetadataDto get(@PathVariable String id) {
+        return SessionMetadataDto.from(sessionService.resolveOrThrow(id));
     }
 
     @PatchMapping("/{id}")
     public SessionMetadataDto updateSettings(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestHeader(value = "X-Session-Password", required = false) String password,
             @RequestBody SessionSettingsDto dto) {
         sessionService.assertAccess(id, password);
@@ -53,7 +51,7 @@ public class SessionController {
 
     @GetMapping(value = "/{id}/state", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<byte[]> getState(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestHeader(value = "X-Session-Password", required = false) String password) {
         sessionService.assertAccess(id, password);
         byte[] blob = sessionService.getEncryptedState(id);
@@ -66,7 +64,7 @@ public class SessionController {
     @PutMapping(value = "/{id}/state", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void putState(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestHeader(value = "X-Session-Password", required = false) String password,
             @RequestBody byte[] blob) {
         sessionService.assertAccess(id, password);

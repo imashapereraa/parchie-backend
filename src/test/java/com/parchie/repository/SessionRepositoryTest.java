@@ -95,4 +95,18 @@ class SessionRepositoryTest {
         assertNotNull(id);
         assertTrue(sessionRepository.findById(id).isPresent());
     }
+
+    @Test
+    void findBySlug_returnsSessionWhenSlugMatches() {
+        Session session = new Session();
+        session.setSlug("abc-defg-hij");
+        sessionRepository.save(session);
+
+        assertTrue(sessionRepository.findBySlug("abc-defg-hij").isPresent());
+    }
+
+    @Test
+    void findBySlug_emptyWhenSlugUnknown() {
+        assertTrue(sessionRepository.findBySlug("nope-nope-nop").isEmpty());
+    }
 }

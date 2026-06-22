@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record SessionMetadataDto(
         UUID id,
+        String slug,
         Instant createdAt,
         Instant expiresAt,
         boolean locked,
@@ -16,6 +17,7 @@ public record SessionMetadataDto(
     public static SessionMetadataDto from(Session session) {
         return new SessionMetadataDto(
                 session.getId(),
+                session.getSlug(),
                 session.getCreatedAt(),
                 session.getExpiresAt(),
                 session.isLocked(),

@@ -11,4 +11,8 @@ public class SessionNotFoundException extends RuntimeException {
     public SessionNotFoundException(UUID id) {
         super("Session not found: " + id);
     }
+
+    public SessionNotFoundException(String identifier) {
+        super("Session not found: " + identifier);
+    }
 }

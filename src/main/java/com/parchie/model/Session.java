@@ -26,6 +26,9 @@ public class Session {
     @Column(name = "password_hash", length = 72)
     private String passwordHash;
 
+    @Column(name = "slug", length = 32, unique = true)
+    private String slug;
+
     @Column(name = "encrypted_state", columnDefinition = "bytea")
     private byte[] encryptedState;
 
@@ -66,4 +69,8 @@ public class Session {
     public byte[] getEncryptedState() { return encryptedState; }
 
     public void setEncryptedState(byte[] encryptedState) { this.encryptedState = encryptedState; }
+
+    public String getSlug() { return slug; }
+
+    public void setSlug(String slug) { this.slug = slug; }
 }

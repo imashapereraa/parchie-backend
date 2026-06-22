@@ -1,5 +1,8 @@
 package com.parchie.websocket;
 
+import com.parchie.model.Session;
+import com.parchie.repository.SessionRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,7 +22,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +46,20 @@ class SessionRelayHandlerTest {
 
     @Autowired
     SessionRelayHandler handler;
+
+    @Autowired
+    SessionRepository sessionRepository;
+
+    @AfterEach
+    void cleanup() {
+        sessionRepository.deleteAll();
+    }
+
+    private Session newSession(String slug) {
+        Session s = new Session();
+        s.setSlug(slug);
+        return sessionRepository.save(s);
+    }
 
     private RecordingClient connect(String room) throws Exception {
         RecordingClient client = new RecordingClient();
@@ -70,21 +88,60 @@ class SessionRelayHandlerTest {
     }
 
     @Test
-    void connect_acceptsAnyRoomName() throws Exception {
-        RecordingClient client = connect("any-room-abc123");
-        assertTrue(client.openLatch.await(2, TimeUnit.SECONDS), "Connection should open for any room name");
+    void connect_acceptsValidUuid() throws Exception {
+        Session s = newSession("uuid-room-slug");
+        RecordingClient client = connect(s.getId().toString());
+        assertTrue(client.openLatch.await(2, TimeUnit.SECONDS), "Connection should open for known UUID");
         assertTrue(client.session.isOpen());
         client.session.close();
     }
 
     @Test
+    void connect_acceptsValidSlug() throws Exception {
+        newSession("slug-only-room");
+        RecordingClient client = connect("slug-only-room");
+        assertTrue(client.openLatch.await(2, TimeUnit.SECONDS), "Connection should open for known slug");
+        assertTrue(client.session.isOpen());
+        client.session.close();
+    }
+
+    @Test
+    void connect_rejectsUnknownRoom() throws Exception {
+        RecordingClient client = connect("no-such-room-xyz");
+        CloseStatus close = client.closeFuture.get(5, TimeUnit.SECONDS);
+        assertEquals(CloseStatus.POLICY_VIOLATION.getCode(), close.getCode(),
+                "Unknown rooms should be closed with POLICY_VIOLATION");
+    }
+
+    @Test
+    void slugAndUuid_routeToSameRoom() throws Exception {
+        Session s = newSession("dual-route-test");
+
+        RecordingClient byUuid = connect(s.getId().toString());
+        RecordingClient bySlug = connect("dual-route-test");
+        assertTrue(byUuid.openLatch.await(2, TimeUnit.SECONDS));
+        assertTrue(bySlug.openLatch.await(2, TimeUnit.SECONDS));
+        awaitPeers(s.getId().toString(), 2);
+
+        byte[] msg = payload(7, 8, 9);
+        byUuid.session.sendMessage(new BinaryMessage(msg));
+
+        byte[] received = bySlug.received.poll(5, TimeUnit.SECONDS);
+        assertArrayEquals(msg, received,
+                "Peer joined by slug should receive frame from peer joined by UUID");
+
+        byUuid.session.close();
+        bySlug.session.close();
+    }
+
+    @Test
     void binaryMessage_broadcastsToOtherPeersOnly() throws Exception {
-        String room = UUID.randomUUID().toString();
-        RecordingClient a = connect(room);
-        RecordingClient b = connect(room);
+        Session s = newSession("broadcast-room");
+        RecordingClient a = connect(s.getId().toString());
+        RecordingClient b = connect(s.getId().toString());
         assertTrue(a.openLatch.await(2, TimeUnit.SECONDS));
         assertTrue(b.openLatch.await(2, TimeUnit.SECONDS));
-        awaitPeers(room, 2);
+        awaitPeers(s.getId().toString(), 2);
 
         byte[] msg = payload(1, 2, 3, 4);
         a.session.sendMessage(new BinaryMessage(msg));
@@ -101,17 +158,17 @@ class SessionRelayHandlerTest {
 
     @Test
     void messages_areIsolatedBetweenRooms() throws Exception {
-        String room1 = UUID.randomUUID().toString();
-        String room2 = UUID.randomUUID().toString();
+        Session s1 = newSession("isolate-room-1");
+        Session s2 = newSession("isolate-room-2");
 
-        RecordingClient a = connect(room1);
-        RecordingClient b = connect(room1);
-        RecordingClient c = connect(room2);
+        RecordingClient a = connect(s1.getId().toString());
+        RecordingClient b = connect(s1.getId().toString());
+        RecordingClient c = connect(s2.getId().toString());
         assertTrue(a.openLatch.await(2, TimeUnit.SECONDS));
         assertTrue(b.openLatch.await(2, TimeUnit.SECONDS));
         assertTrue(c.openLatch.await(2, TimeUnit.SECONDS));
-        awaitPeers(room1, 2);
-        awaitPeers(room2, 1);
+        awaitPeers(s1.getId().toString(), 2);
+        awaitPeers(s2.getId().toString(), 1);
 
         byte[] msg = payload(42, 7);
         a.session.sendMessage(new BinaryMessage(msg));
@@ -120,7 +177,7 @@ class SessionRelayHandlerTest {
         assertArrayEquals(msg, receivedByB);
 
         byte[] leakedToC = c.received.poll(500, TimeUnit.MILLISECONDS);
-        assertNull(leakedToC, "Room 2 must not receive room 1's frames");
+        assertNull(leakedToC, "Other session must not receive room 1's frames");
 
         a.session.close();
         b.session.close();
@@ -129,20 +186,20 @@ class SessionRelayHandlerTest {
 
     @Test
     void closingConnection_removesPeerFromBroadcast() throws Exception {
-        String room = UUID.randomUUID().toString();
-        RecordingClient a = connect(room);
-        RecordingClient b = connect(room);
+        Session s = newSession("close-room");
+        RecordingClient a = connect(s.getId().toString());
+        RecordingClient b = connect(s.getId().toString());
         assertTrue(a.openLatch.await(2, TimeUnit.SECONDS));
         assertTrue(b.openLatch.await(2, TimeUnit.SECONDS));
-        awaitPeers(room, 2);
+        awaitPeers(s.getId().toString(), 2);
 
         b.session.close();
         assertNotNull(b.closeFuture.get(5, TimeUnit.SECONDS));
-        awaitPeers(room, 1);
+        awaitPeers(s.getId().toString(), 1);
 
-        RecordingClient c = connect(room);
+        RecordingClient c = connect(s.getId().toString());
         assertTrue(c.openLatch.await(2, TimeUnit.SECONDS));
-        awaitPeers(room, 2);
+        awaitPeers(s.getId().toString(), 2);
 
         byte[] msg = payload(9, 9);
         a.session.sendMessage(new BinaryMessage(msg));
@@ -156,7 +213,8 @@ class SessionRelayHandlerTest {
 
     @Test
     void brokenPeer_doesNotPreventDeliveryToHealthyPeers() throws Exception {
-        String path = "/ws/sessions/test-room";
+        Session s = newSession("broken-peer-room");
+        String path = "/ws/sessions/" + s.getId();
 
         WebSocketSession sender = mockSession("sender", path);
         WebSocketSession broken = mockSession("broken", path);
@@ -181,6 +239,9 @@ class SessionRelayHandlerTest {
         when(ws.getId()).thenReturn(id);
         when(ws.isOpen()).thenReturn(true);
         when(ws.getUri()).thenReturn(URI.create("ws://localhost" + path));
+        // Attribute map is read & written by the handler to cache the resolved room key.
+        Map<String, Object> attrs = new HashMap<>();
+        when(ws.getAttributes()).thenReturn(attrs);
         return ws;
     }
 

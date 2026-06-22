@@ -172,6 +172,41 @@ class SessionControllerTest {
     }
 
     @Test
+    void post_createResponse_includesSlug() throws Exception {
+        mockMvc.perform(post("/api/sessions"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.slug").isString())
+                .andExpect(jsonPath("$.slug").isNotEmpty());
+    }
+
+    @Test
+    void get_resolvesBySlug() throws Exception {
+        Session session = new Session();
+        session.setSlug("share-link-1");
+        Session saved = sessionRepository.save(session);
+
+        mockMvc.perform(get("/api/sessions/{id}", "share-link-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(saved.getId().toString()))
+                .andExpect(jsonPath("$.slug").value("share-link-1"));
+    }
+
+    @Test
+    void getState_resolvesBySlug() throws Exception {
+        Session session = new Session();
+        session.setSlug("share-link-2");
+        byte[] blob = {1, 2, 3};
+        session.setEncryptedState(blob);
+        sessionRepository.save(session);
+
+        byte[] response = mockMvc.perform(get("/api/sessions/{id}/state", "share-link-2"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        assertArrayEquals(blob, response);
+    }
+
+    @Test
     void get_isPublic_whenSessionHasPassword() throws Exception {
         Session session = new Session();
         session.setPasswordHash(BCrypt.hashpw("secret", BCrypt.gensalt()));
