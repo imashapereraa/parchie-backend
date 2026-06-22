@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/parchie
+    username: parchie
+    password: parchie
+
+  docker:
+    compose:
+      lifecycle-management: start-and-stop
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop
+
+logging:
+  level:
+    com.parchie: DEBUG
+    org.springframework.web.socket: DEBUG
