@@ -32,6 +32,12 @@ public class Session {
     @Column(name = "encrypted_state", columnDefinition = "bytea")
     private byte[] encryptedState;
 
+    /** Null for anonymous rooms (existing /api/sessions flow). Non-null when a
+     *  document in a user's tree backs this session — those sessions never
+     *  expire, see {@code expires_at} set to a far-future sentinel. */
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
     @PrePersist
     private void onCreate() {
         createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
@@ -73,4 +79,8 @@ public class Session {
     public String getSlug() { return slug; }
 
     public void setSlug(String slug) { this.slug = slug; }
+
+    public UUID getOwnerId() { return ownerId; }
+
+    public void setOwnerId(UUID ownerId) { this.ownerId = ownerId; }
 }

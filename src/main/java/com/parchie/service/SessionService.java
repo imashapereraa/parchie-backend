@@ -49,6 +49,20 @@ public class SessionService {
         return sessionRepository.save(session);
     }
 
+    /**
+     * Create a session that belongs to a user. The row is marked as
+     * permanent by pushing `expires_at` to a far-future sentinel — the
+     * scheduled expiry sweep treats it as never-expiring.
+     */
+    @Transactional
+    public Session createOwnedSession(UUID ownerId) {
+        Session session = new Session();
+        session.setSlug(generateUniqueSlug());
+        session.setOwnerId(ownerId);
+        session.setExpiresAt(Instant.parse("9999-12-31T23:59:59Z"));
+        return sessionRepository.save(session);
+    }
+
     public Optional<Session> getSession(UUID id) {
         return sessionRepository.findById(id).filter(s -> !s.isExpired());
     }
