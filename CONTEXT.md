@@ -14,6 +14,8 @@ Parchie is a real-time collaborative editor. Users share a link, write together 
 | **Export** | Producing a self-contained artifact from a session — styled HTML, raw Markdown, or PDF via browser print. | "download", "save" |
 | **Presence** | Live cursor and selection state broadcast to all participants in a session. | "awareness" |
 | **Relay** | The backend's role in real-time sync — it forwards encrypted CRDT updates between clients without interpreting them. | "sync server", "collaboration server" |
+| **Markdown buffer** | The `Y.Text('content')` on the Session's Y.Doc. The shared mutable markdown stream that both editor presentations (rich and markdown) project from. The only authoritative copy of the session's prose. | "ytext", "content blob", "document text" |
+| **Rich binding** | The module that projects the Markdown buffer onto a ProseMirror document and applies edits in both directions. Parallel to `yCollab`, the CodeMirror binding to the same buffer. Two adapters at one seam. | "bridge", "markdown projection" |
 
 ## Data model
 
