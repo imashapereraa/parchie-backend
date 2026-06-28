@@ -124,12 +124,16 @@ public class DocumentService {
     /** Session slug for a doc node, or null for folder nodes. Used by the
      *  controller to project each Document into a DTO without N+1 queries. */
     public Map<UUID, String> resolveSessionSlugs(List<Document> docs) {
+        // Always a HashMap so callers can do `slugs.get(d.getSessionId())` for
+        // folder rows (sessionId == null) without an NPE — Map.of() rejects
+        // null keys, which used to 500 the list endpoint for any tree where
+        // every visible row was a folder.
+        Map<UUID, String> out = new HashMap<>();
         List<UUID> sessionIds = docs.stream()
                 .map(Document::getSessionId)
                 .filter(java.util.Objects::nonNull)
                 .toList();
-        if (sessionIds.isEmpty()) return Map.of();
-        Map<UUID, String> out = new HashMap<>();
+        if (sessionIds.isEmpty()) return out;
         sessionRepository.findAllById(sessionIds).forEach(s -> out.put(s.getId(), s.getSlug()));
         return out;
     }
