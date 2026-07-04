@@ -10,15 +10,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * Reads the `Authorization: Bearer <token>` header, looks the token up via
- * AuthService, and parks the User on the request as {@link CurrentUser}.
- * Endpoints decide whether they require it via {@code @AuthenticatedUser}.
- *
- * This filter never rejects requests — missing/invalid tokens just leave the
- * attribute unset. That keeps anonymous endpoints (existing /api/sessions
- * routes) working without changes; the resolver enforces auth where needed.
- */
+// reads the `Authorization: Bearer <token>` header, looks the token up via
+// authService, and parks the User on the request as {@link CurrentUser}.
+// endpoints decide whether they require it via {@code @AuthenticatedUser}.
+// this filter never rejects requests — missing/invalid tokens just leave the
+// attribute unset. That keeps anonymous endpoints (existing /api/sessions
+// routes) working without changes; the resolver enforces auth where needed.
 @Component
 public class AuthTokenFilter extends OncePerRequestFilter {
 

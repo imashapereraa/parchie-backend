@@ -28,7 +28,7 @@ public class SessionService {
 
     private static final Logger log = LoggerFactory.getLogger(SessionService.class);
 
-    // Avoid visually ambiguous chars (l, o, 0, 1).
+    // avoid visually ambiguous chars (l, o, 0, 1).
     private static final String SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
     private static final int[] SLUG_GROUP_SIZES = {3, 4, 3};
     private static final int SLUG_MAX_ATTEMPTS = 5;
@@ -49,11 +49,9 @@ public class SessionService {
         return sessionRepository.save(session);
     }
 
-    /**
-     * Create a session that belongs to a user. The row is marked as
-     * permanent by pushing `expires_at` to a far-future sentinel — the
-     * scheduled expiry sweep treats it as never-expiring.
-     */
+         // create a session that belongs to a user. The row is marked as
+     // permanent by pushing `expires_at` to a far-future sentinel — the
+     // scheduled expiry sweep treats it as never-expiring.
     @Transactional
     public Session createOwnedSession(UUID ownerId) {
         Session session = new Session();

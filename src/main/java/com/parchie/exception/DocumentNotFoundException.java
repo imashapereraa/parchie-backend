@@ -9,7 +9,7 @@ import java.util.UUID;
 public class DocumentNotFoundException extends RuntimeException {
 
     public DocumentNotFoundException(UUID id) {
-        // Generic message — used for both "doesn't exist" and "not yours" so
+        // generic message — used for both "doesn't exist" and "not yours" so
         // we don't leak whether a document with that id belongs to someone.
         super("Document not found: " + id);
     }

@@ -17,19 +17,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Tree CRUD over the per-user document graph.
- *
- * Permissioning: every read/write filters by ownerId. We never return a row
- * the caller doesn't own; "not yours" and "doesn't exist" both surface the
- * same 404 to avoid leaking the presence of other users' nodes.
- *
- * Validation that the schema can't express:
- *   - parent must be a folder (a doc can't contain children)
- *   - move target can't be a descendant of the node being moved (cycles)
- *   - name uniqueness within parent is enforced by a partial unique index; we
- *     translate the DB exception into a clean 409.
- */
+// tree CRUD over the per-user document graph.
+// permissioning: every read/write filters by ownerId. We never return a row
+// the caller doesn't own; "not yours" and "doesn't exist" both surface the
+// same 404 to avoid leaking the presence of other users' nodes.
+// validation that the schema can't express:
+// - parent must be a folder (a doc can't contain children)
+// - move target can't be a descendant of the node being moved (cycles)
+// - name uniqueness within parent is enforced by a partial unique index; we
+// translate the DB exception into a clean 409.
 @Service
 public class DocumentService {
 
@@ -111,7 +107,7 @@ public class DocumentService {
     @Transactional
     public void delete(UUID ownerId, UUID id) {
         Document d = requireOwned(id, ownerId);
-        // Cascade is set on the FK so the subtree goes with it. The linked
+        // cascade is set on the FK so the subtree goes with it. The linked
         // session for this row (if it's a doc) is left to expire via the
         // sessions.expires_at sweep — for owned sessions that sentinel is
         // year 9999, so we clean them up explicitly here.
@@ -121,10 +117,10 @@ public class DocumentService {
         documentRepository.delete(d);
     }
 
-    /** Session slug for a doc node, or null for folder nodes. Used by the
-     *  controller to project each Document into a DTO without N+1 queries. */
+    // session slug for a doc node, or null for folder nodes. Used by the
+     // controller to project each Document into a DTO without N+1 queries. */
     public Map<UUID, String> resolveSessionSlugs(List<Document> docs) {
-        // Always a HashMap so callers can do `slugs.get(d.getSessionId())` for
+        // always a HashMap so callers can do `slugs.get(d.getSessionId())` for
         // folder rows (sessionId == null) without an NPE — Map.of() rejects
         // null keys, which used to 500 the list endpoint for any tree where
         // every visible row was a folder.
@@ -138,13 +134,11 @@ public class DocumentService {
         return out;
     }
 
-    // --- internals ------------------------------------------------------
-
     private Document save(Document d) {
         try {
             return documentRepository.save(d);
         } catch (DataIntegrityViolationException e) {
-            // Partial unique index on (owner_id, parent_id, lower(name)) fires
+            // partial unique index on (owner_id, parent_id, lower(name)) fires
             // on duplicates within the same folder.
             throw new DocumentNameConflictException(d.getName());
         }
@@ -157,7 +151,7 @@ public class DocumentService {
         if (name.length() > 255) {
             throw new InvalidTreeMoveException("Name too long");
         }
-        // Disallow slashes so future path-based UIs don't have to escape.
+        // disallow slashes so future path-based UIs don't have to escape.
         if (name.contains("/") || name.contains("\\")) {
             throw new InvalidTreeMoveException("Name cannot contain slashes");
         }
@@ -171,9 +165,9 @@ public class DocumentService {
         }
     }
 
-    /** True if `candidateAncestorId` lies on the parent-chain of `node`. Walks
-     *  upward via parentId. Bounded by the size of the user's tree so cycles
-     *  in malformed data can't hang us. */
+    // true if `candidateAncestorId` lies on the parent-chain of `node`. Walks
+     // upward via parentId. Bounded by the size of the user's tree so cycles
+     // in malformed data can't hang us. */
     private boolean isDescendantOf(UUID ownerId, Document node, UUID candidateAncestorId) {
         UUID cursor = node.getParentId();
         int hops = 0;

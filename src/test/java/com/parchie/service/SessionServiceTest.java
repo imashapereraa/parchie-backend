@@ -56,12 +56,12 @@ class SessionServiceTest {
         assertNull(created.getPasswordHash());
         assertNull(created.getEncryptedState());
 
-        // Defaults: expires roughly 7 days from now
+        // defaults: expires roughly 7 days from now
         Instant sevenDays = Instant.now().plus(7, ChronoUnit.DAYS);
         assertTrue(created.getExpiresAt().isAfter(sevenDays.minusSeconds(60)));
         assertTrue(created.getExpiresAt().isBefore(sevenDays.plusSeconds(60)));
 
-        // Persisted, not just constructed
+        // persisted, not just constructed
         assertTrue(sessionRepository.findById(created.getId()).isPresent());
     }
 
@@ -138,7 +138,7 @@ class SessionServiceTest {
     @Test
     void updateEncryptedState_persistsBlobAndResetsTtl() {
         Session created = sessionService.createSession();
-        // Shrink TTL so we can detect the reset
+        // shrink TTL so we can detect the reset
         created.setExpiresAt(Instant.now().plusSeconds(60));
         sessionRepository.save(created);
 

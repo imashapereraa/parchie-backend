@@ -4,11 +4,9 @@ import com.parchie.model.User;
 
 import java.time.Instant;
 
-/**
- * Request/response DTOs for the auth endpoints. Grouped in one file because
- * each shape is a small record without behaviour — splitting them gives no
- * benefit and adds noise.
- */
+// request/response DTOs for the auth endpoints. Grouped in one file because
+// each shape is a small record without behaviour — splitting them gives no
+// benefit and adds noise.
 public final class AuthDtos {
 
     private AuthDtos() {}

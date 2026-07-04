@@ -35,9 +35,9 @@ public class DocumentController {
         this.documentService = documentService;
     }
 
-    /** Returns the user's entire tree as a flat list. The frontend builds the
-     *  parent-child tree itself — keeps the API one round-trip, and lets us
-     *  rerender locally on rename/move without re-fetching. */
+    // returns the user's entire tree as a flat list. The frontend builds the
+     // parent-child tree itself — keeps the API one round-trip, and lets us
+     // rerender locally on rename/move without re-fetching. */
     @GetMapping
     public List<DocumentNode> list(@AuthenticatedUser User user) {
         List<Document> docs = documentService.listOwned(user.getId());

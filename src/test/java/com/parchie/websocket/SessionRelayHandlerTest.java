@@ -261,7 +261,7 @@ class SessionRelayHandlerTest {
         when(ws.getId()).thenReturn(id);
         when(ws.isOpen()).thenReturn(true);
         when(ws.getUri()).thenReturn(URI.create("ws://localhost" + path));
-        // Attribute map is read & written by the handler to cache the resolved room key.
+        // attribute map is read & written by the handler to cache the resolved room key.
         Map<String, Object> attrs = new HashMap<>();
         when(ws.getAttributes()).thenReturn(attrs);
         return ws;

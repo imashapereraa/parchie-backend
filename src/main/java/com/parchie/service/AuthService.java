@@ -42,7 +42,7 @@ public class AuthService {
     @Transactional
     public Issued register(String username, String password) {
         validateCredentials(username, password);
-        // Cheap pre-check; the unique-lower index is the real guard against
+        // cheap pre-check; the unique-lower index is the real guard against
         // a race between two concurrent registrations of the same name.
         if (userRepository.findByUsernameIgnoreCase(username).isPresent()) {
             throw new UsernameTakenException(username);
@@ -53,7 +53,7 @@ public class AuthService {
         try {
             user = userRepository.save(user);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Unique index caught a race; surface the same business error.
+            // unique index caught a race; surface the same business error.
             throw new UsernameTakenException(username);
         }
         return new Issued(user, issueToken(user));
@@ -63,7 +63,7 @@ public class AuthService {
     public Issued login(String username, String password) {
         Optional<User> found = userRepository.findByUsernameIgnoreCase(username);
         if (found.isEmpty() || !found.get().passwordMatches(password)) {
-            // Intentionally identical error for "no such user" and "wrong
+            // intentionally identical error for "no such user" and "wrong
             // password" so we don't leak which usernames exist.
             throw new InvalidCredentialsException();
         }
@@ -76,7 +76,7 @@ public class AuthService {
         tokenRepository.deleteById(token);
     }
 
-    /** Returns the user if the token is valid AND not expired, else empty. */
+    // returns the user if the token is valid AND not expired, else empty.
     public Optional<User> resolve(String token) {
         if (token == null || token.isBlank()) return Optional.empty();
         Optional<AuthToken> row = tokenRepository.findById(token);

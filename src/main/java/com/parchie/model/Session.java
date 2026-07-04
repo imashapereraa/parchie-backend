@@ -32,9 +32,9 @@ public class Session {
     @Column(name = "encrypted_state", columnDefinition = "bytea")
     private byte[] encryptedState;
 
-    /** Null for anonymous rooms (existing /api/sessions flow). Non-null when a
-     *  document in a user's tree backs this session — those sessions never
-     *  expire, see {@code expires_at} set to a far-future sentinel. */
+    // null for anonymous rooms (existing /api/sessions flow). Non-null when a
+     // document in a user's tree backs this session — those sessions never
+     // expire, see {@code expires_at} set to a far-future sentinel. */
     @Column(name = "owner_id")
     private UUID ownerId;
 
